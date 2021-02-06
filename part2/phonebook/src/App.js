@@ -2,6 +2,7 @@ import {React, useState, useEffect } from 'react'
 import Filter from './components/Filter'
 import PersonsForm from './components/PersonsForm'
 import Person from './components/Person'
+import Notification from './components/Notification'
 import personService from './services/person'
 
 const App = () => {
@@ -9,6 +10,7 @@ const App = () => {
   const [ newName, setNewName ] = useState('')
   const [ newNumber, setNewNumber ] = useState('')
   const [ matchingPersons, setMatchingPersons ] = useState(persons)
+  const [ message, setMessage ] = useState({message: null, success: false})
 
   useEffect(() => {
     personService
@@ -32,18 +34,26 @@ const App = () => {
             setMatchingPersons(newPersons)
             setNewName('')
             setNewNumber('')
+            setMessage({
+              message: `${returnedPerson.name} successfully added`, 
+              success: true
+            })
           })
           .catch(error => {
-            alert(
-              `${existingPerson.name} has already been deleted from the server`
-            )
+            setMessage({
+                message: `${existingPerson.name} has already been deleted from the server`,
+                success: false
+            })
+            setTimeout(() => {
+              setMessage({message: null, success: false})
+            }, 5000)
             let newPersons = persons.filter(person => person.id !== existingPerson.id)
             setPersons(newPersons)
             setMatchingPersons(newPersons)
           })
       }
     }
-    else {
+    else { // new person
       let newPersons = {name: newName, number: newNumber}
       personService
         .create(newPersons)
@@ -53,6 +63,10 @@ const App = () => {
           setMatchingPersons(newPersons)
           setNewName('')
           setNewNumber('')
+          setMessage({
+            message: `${returnedPerson.name} successfully added`, 
+            success: true
+          })
         })
     }
   }
@@ -77,6 +91,7 @@ const App = () => {
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification message={message.message} success={message.success} />
       <Filter text='Search for a person: ' onChange={searchPhonebook} />
       <h2>Add a new number</h2>
       <PersonsForm 
