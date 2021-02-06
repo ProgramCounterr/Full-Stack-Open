@@ -1,8 +1,8 @@
 import {React, useState, useEffect } from 'react'
 import Filter from './components/Filter'
 import PersonsForm from './components/PersonsForm'
-import Numbers from './components/Numbers'
-import axios from 'axios'
+import Person from './components/Person'
+import personService from './services/person'
 
 const App = () => {
   const [ persons, setPersons ] = useState([]) 
@@ -11,24 +11,58 @@ const App = () => {
   const [ matchingPersons, setMatchingPersons ] = useState(persons)
 
   useEffect(() => {
-    axios
-      .get('http://localhost:3001/persons')
-      .then(response => {
-        setPersons(response.data)
-        setMatchingPersons(response.data)
+    personService
+      .getAll()
+      .then(initialPersons => {
+        setPersons(initialPersons)
+        setMatchingPersons(initialPersons)
       })
   }, [])
 
   const addPerson = (e) => {
     e.preventDefault()
-    if(persons.map(person => person.name.toLowerCase()).indexOf(newName.toLowerCase()) >= 0)
-      alert(`${newName} has already been added to the phonebook`)
+    const existingPerson = persons.find(person => person.name.toLowerCase().indexOf(newName.toLowerCase()) >= 0)
+    if(existingPerson) { // person already in phonebook
+      if(window.confirm(`${newName} has already been added to the phonebook. Replace old number with new one?`)) {
+        personService
+          .update(existingPerson.id, {name: newName, number: newNumber})
+          .then(returnedPerson => {
+            let newPersons = persons.map(person => person.id === returnedPerson.id ? returnedPerson : person)
+            setPersons(newPersons)
+            setMatchingPersons(newPersons)
+            setNewName('')
+            setNewNumber('')
+          })
+          .catch(error => {
+            alert(
+              `${existingPerson.name} has already been deleted from the server`
+            )
+            let newPersons = persons.filter(person => person.id !== existingPerson.id)
+            setPersons(newPersons)
+            setMatchingPersons(newPersons)
+          })
+      }
+    }
     else {
-      let newPersons = persons.concat({name: newName, number: newNumber})
+      let newPersons = {name: newName, number: newNumber}
+      personService
+        .create(newPersons)
+        .then(returnedPerson => {
+          let newPersons = persons.concat(returnedPerson)
+          setPersons(newPersons)
+          setMatchingPersons(newPersons)
+          setNewName('')
+          setNewNumber('')
+        })
+    }
+  }
+
+  const removePerson = (id) => {
+    if(window.confirm('Do you really want to remove this person from your phonebook?')) {
+      personService.remove(id)
+      let newPersons = persons.filter(person => person.id !== id)
       setPersons(newPersons)
       setMatchingPersons(newPersons)
-      setNewName('')
-      setNewNumber('')
     }
   }
 
@@ -61,9 +95,11 @@ const App = () => {
         onSubmit={addPerson}
       />
       <h2>Numbers</h2>
-      <Numbers persons={matchingPersons} />
+      {matchingPersons.map(person => 
+        <Person key={person.id} person={person} remove={() => removePerson(person.id)} />
+      )}
     </div>
   )
 }
   
-  export default App
+export default App
